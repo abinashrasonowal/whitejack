@@ -154,7 +154,7 @@ export const AboutPage: React.FC = () => {
                 <a href="https://openrouter.ai/~typesafe/jev-latest" target="_blank" rel="noreferrer" className={inlineLink}>
                   Jev
                 </a>
-                , TypeSafe’s decision model, to weigh them, and plays the one Jev rates highest.
+                , TypeSafe’s fast, low-cost decision model, to weigh them, and plays the one Jev rates highest.
               </p>
               <p>
                 Because Jev can only choose from that list, a bot can never attempt an illegal move. If the model
@@ -174,6 +174,14 @@ export const AboutPage: React.FC = () => {
               <div className="py-3 flex flex-col gap-0.5">
                 <dt className="text-stone-500">If the model is slow</dt>
                 <dd className="text-stone-900 font-medium">Built-in strategy after 3 seconds</dd>
+              </div>
+              <div className="py-3 flex flex-col gap-0.5">
+                <dt className="text-stone-500">Cost per move</dt>
+                <dd className="text-stone-900 font-medium">About $0.00003 — roughly 3¢ per 1,000 moves</dd>
+              </div>
+              <div className="py-3 flex flex-col gap-0.5">
+                <dt className="text-stone-500">Why Jev</dt>
+                <dd className="text-stone-900 font-medium">Fast, cheap, and answers with a probability per move</dd>
               </div>
               <div className="py-3 flex flex-col gap-0.5">
                 <dt className="text-stone-500">What it can see</dt>
@@ -274,7 +282,7 @@ export const AboutPage: React.FC = () => {
 const PIPELINE = [
   { title: 'The table', detail: 'The bot’s own hand and the public table, as the server sends it' },
   { title: 'Legal moves', detail: 'Each one described in plain words' },
-  { title: 'Ask Jev', detail: 'A choice question over exactly those moves' },
+  { title: 'Ask Jev', detail: 'A fast, low-cost choice question over exactly those moves' },
   { title: 'Probabilities', detail: 'One per move — the bot plays the best' },
 ];
 
