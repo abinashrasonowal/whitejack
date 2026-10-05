@@ -18,9 +18,10 @@ fill empty seats and show their reasoning after every hand. No accounts, no down
   Clients only send intents and get back a view filtered for them, so hidden cards never leave the server.
 - **Games are plug-ins.** A game implements one `GameDefinition` contract and is discovered at
   runtime. The engine compiles with no game on its classpath.
-- **AI bots that can't cheat or stall.** A bot is an ordinary socket client. It asks an LLM decision
-  model ([Jev](https://openrouter.ai/~typesafe/jev-latest)) to rank exactly the legal moves, falls back
-  to a built-in strategy after 3 s, and its reasoning is published only once the hand is over.
+- **Fast, cheap AI bots that can't cheat or stall.** A bot is an ordinary socket client. It asks
+  [Jev](https://openrouter.ai/~typesafe/jev-latest), TypeSafe's fast, low-cost decision model, to rank
+  exactly the legal moves — about **$0.00003 per move**, roughly 3¢ per 1,000 moves. It falls back to a
+  built-in strategy after 3 s, and its reasoning is published only once the hand is over.
 - **Verifiable shuffles.** Each hand's seed is committed before the deal and revealed after it, and every
   player's client seed is mixed in, so the server can't choose the deck on its own.
 
@@ -77,6 +78,15 @@ sequenceDiagram
 
 A bot's options are its own cards, so each move it makes is recorded and served from
 `GET /api/rooms/{room}/bot-notes` only after that hand is over. The table shows it as the panel below.
+
+### Why Jev
+
+- **Fast.** Each turn is one choice question, so Jev answers quickly and bots keep pace with the table,
+  well inside the 3 s fallback.
+- **Cheap.** A call is about 700–800 input tokens and 30–80 output tokens, about **$0.0000319** per
+  move, or roughly 3¢ per 1,000 bot moves. Filling empty seats all night costs next to nothing.
+- **Built for choices.** Jev returns a probability for each option instead of free text, so there's
+  nothing to parse and no way to name an illegal move. Those probabilities are what the panel shows.
 
 <p align="center">
   <img src="docs/images/bot-reasoning.png" alt="The 'How the bots played' panel: each bot move with Jev's probability for its top options" width="312">
