@@ -182,7 +182,8 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         boolean hold = PassDirection.forHand(dealt.hand()) == PassDirection.HOLD;
         return new HeartsState(state.seats(), dealt.hand(), hold ? HeartsPhase.PLAYING : HeartsPhase.PASSING,
                 hands, Map.of(), List.of(), hold ? holderOf(hands, Rules.TWO_OF_CLUBS) : null, 0, false,
-                HeartsState.zeroes(state.seats()), state.scores(), state.history(), List.of(), null);
+                HeartsState.zeroes(state.seats()), state.scores(), state.history(), List.of(), null, List.of(),
+                Map.of());
     }
 
     private static HeartsState pass(HeartsState state, Passed passed) {
@@ -191,7 +192,7 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         if (passes.size() < SEATS) {
             return new HeartsState(state.seats(), state.hand(), state.phase(), state.hands(), passes, state.trick(),
                     state.leader(), state.tricksPlayed(), state.heartsBroken(), state.handPoints(), state.scores(),
-                    state.history(), state.lastTrick(), state.lastTrickWinner());
+                    state.history(), state.lastTrick(), state.lastTrickWinner(), state.tricks(), state.exchanged());
         }
 
         // The fourth pass: everyone's cards move at once.
@@ -210,7 +211,7 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         hands.replaceAll((player, cards) -> sorted(cards));
         return new HeartsState(state.seats(), state.hand(), HeartsPhase.PLAYING, hands, Map.of(), List.of(),
                 holderOf(hands, Rules.TWO_OF_CLUBS), 0, false, state.handPoints(), state.scores(), state.history(),
-                List.of(), null);
+                List.of(), null, List.of(), passes);
     }
 
     private static HeartsState play(HeartsState state, Played played) {
@@ -229,17 +230,20 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         if (trick.size() < SEATS) {
             return new HeartsState(state.seats(), state.hand(), state.phase(), hands, state.passes(), trick, leader,
                     state.tricksPlayed(), broken, state.handPoints(), state.scores(), state.history(),
-                    state.lastTrick(), state.lastTrickWinner());
+                    state.lastTrick(), state.lastTrickWinner(), state.tricks(), state.exchanged());
         }
 
         PlayerId winner = Rules.trickWinner(trick);
         Map<PlayerId, Integer> handPoints = new LinkedHashMap<>(state.handPoints());
         handPoints.merge(winner, trick.stream().mapToInt(p -> Rules.points(p.card())).sum(), Integer::sum);
         int tricksPlayed = state.tricksPlayed() + 1;
+        List<Trick> tricks = new ArrayList<>(state.tricks());
+        tricks.add(new Trick(trick, winner));
 
         if (tricksPlayed < HAND_SIZE) {
             return new HeartsState(state.seats(), state.hand(), state.phase(), hands, state.passes(), List.of(),
-                    winner, tricksPlayed, broken, handPoints, state.scores(), state.history(), trick, winner);
+                    winner, tricksPlayed, broken, handPoints, state.scores(), state.history(), trick, winner, tricks,
+                    state.exchanged());
         }
 
         // Trick 13: score the hand.
@@ -257,7 +261,7 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         boolean over = Collections.max(scores.values()) >= TARGET;
         return new HeartsState(state.seats(), state.hand(), over ? HeartsPhase.GAME_OVER : HeartsPhase.SCORING,
                 hands, state.passes(), List.of(), winner, tricksPlayed, broken, handPoints, scores, history, trick,
-                winner);
+                winner, tricks, state.exchanged());
     }
 
     @Override
@@ -311,10 +315,21 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
             legal = Rules.legalPlays(state, me);
         }
 
+        // Your own pass is yours to see: the pick while it is pending, then what changed hands.
+        List<Card> myPass = List.of();
+        List<Card> received = List.of();
+        if (me != null) {
+            myPass = state.passes().getOrDefault(me, state.exchanged().getOrDefault(me, List.of()));
+            if (!state.exchanged().isEmpty()) {
+                int giver = Math.floorMod(state.positionOf(me) - state.passDirection().offset(), SEATS);
+                received = state.exchanged().getOrDefault(state.seats().get(giver).id(), List.of());
+            }
+        }
+
         return new HeartsView(state.phase(), state.hand(), state.passDirection(), state.heartsBroken(),
                 state.tricksPlayed(), seats, me == null ? List.of() : state.handOf(me), legal, state.trick(),
-                state.leader(), onClock, state.lastTrick(), state.lastTrickWinner(), state.history(),
-                state.phase() == HeartsPhase.GAME_OVER ? lowestScore(state) : null);
+                state.leader(), onClock, state.lastTrick(), state.lastTrickWinner(), state.tricks(), myPass, received,
+                state.history(), state.phase() == HeartsPhase.GAME_OVER ? lowestScore(state) : null);
     }
 
     /** Ties go to the earlier seat — rare, and a named winner is a better end than none. */

@@ -105,7 +105,7 @@ class HeartsGameTest {
         Map<PlayerId, List<Card>> byPlayer = new LinkedHashMap<>();
         for (int i = 0; i < 4; i++) byPlayer.put(PLAYERS.get(i), hands.get(i));
         return new HeartsState(SEATS, 0, HeartsPhase.PLAYING, byPlayer, Map.of(), trick, leader, tricksPlayed,
-                heartsBroken, handPoints, scores, List.of(), List.of(), null);
+                heartsBroken, handPoints, scores, List.of(), List.of(), null, List.of(), Map.of());
     }
 
     private static HeartsState playing(List<List<Card>> hands, PlayerId leader, List<PlayedCard> trick,
@@ -309,6 +309,62 @@ class HeartsGameTest {
         HeartsView spectator = GAME.project(state, Optional.empty());
         assertTrue(spectator.myHand().isEmpty());
         assertTrue(spectator.legal().isEmpty());
+    }
+
+    @Test
+    void aViewShowsYourOwnPassBothWaysAndNobodyElses() {
+        for (int hand = 0; hand < 3; hand++) {
+            HeartsState dealt = GAME.createInitialState(SEATS, Map.of(), ctx(hand + 31));
+            HeartsState state = GAME.apply(dealt, new Dealt(hand, dealt.hands()));
+            int offset = PassDirection.forHand(hand).offset();
+
+            HeartsState oneIn = step(state, new Pass(state.handOf(P0).subList(0, 3)), P0, ctx(1));
+            assertEquals(state.handOf(P0).subList(0, 3), GAME.project(oneIn, Optional.of(P0)).myPass(), "pending pick");
+            assertTrue(GAME.project(oneIn, Optional.of(P0)).received().isEmpty(), "nothing received before the exchange");
+            assertTrue(GAME.project(oneIn, Optional.of(P1)).myPass().isEmpty(), "another seat's pick stays hidden");
+
+            HeartsState passed = passEveryone(state);
+            for (int i = 0; i < 4; i++) {
+                HeartsView view = GAME.project(passed, Optional.of(PLAYERS.get(i)));
+                assertEquals(state.handOf(PLAYERS.get(i)).subList(0, 3), view.myPass(), "hand " + hand + " seat " + i);
+                PlayerId giver = PLAYERS.get(Math.floorMod(i - offset, 4));
+                assertEquals(state.handOf(giver).subList(0, 3), view.received(), "hand " + hand + " seat " + i);
+            }
+            HeartsView spectator = GAME.project(passed, Optional.empty());
+            assertTrue(spectator.myPass().isEmpty());
+            assertTrue(spectator.received().isEmpty());
+        }
+
+        HeartsState dealt = GAME.createInitialState(SEATS, Map.of(), ctx(3));
+        HeartsState hold = GAME.apply(dealt, new Dealt(3, dealt.hands()));
+        assertTrue(GAME.project(hold, Optional.of(P0)).myPass().isEmpty());
+        assertTrue(GAME.project(hold, Optional.of(P0)).received().isEmpty());
+    }
+
+    @Test
+    void everyFinishedTrickOfTheHandIsPublicAndClearsOnTheNextDeal() {
+        EngineContext ctx = ctx(41);
+        HeartsState state = passEveryone(GAME.createInitialState(SEATS, Map.of(), ctx));
+        List<Card> seen = new ArrayList<>();
+        while (state.tricksPlayed() < 5) {
+            PlayerId actor = GAME.turn(state).orElseThrow().actor();
+            HeartsIntent move = GAME.onTimeout(state, actor);
+            seen.add(((Play) move).card());
+            state = step(state, move, actor, ctx);
+        }
+        HeartsView view = GAME.project(state, Optional.of(P2));
+        assertEquals(5, view.tricks().size());
+        assertEquals(seen.subList(0, 20), view.tricks().stream()
+                .flatMap(t -> t.plays().stream()).map(PlayedCard::card).toList());
+        assertEquals(state.lastTrickWinner(), view.tricks().get(4).winner());
+        assertEquals(view.tricks(), GAME.project(state, Optional.empty()).tricks(), "spectators see the same tricks");
+
+        while (state.hand() == 0) {
+            PlayerId actor = GAME.turn(state).orElseThrow().actor();
+            state = step(state, GAME.onTimeout(state, actor), actor, ctx);
+        }
+        assertTrue(GAME.project(state, Optional.of(P2)).tricks().isEmpty(), "a new hand starts with no tricks");
+        assertTrue(GAME.project(state, Optional.of(P2)).myPass().isEmpty(), "and no pass yet");
     }
 
     @Test
