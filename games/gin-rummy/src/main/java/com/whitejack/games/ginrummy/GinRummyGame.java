@@ -18,7 +18,6 @@ import com.whitejack.games.ginrummy.GinIntent.Draw;
 import com.whitejack.games.ginrummy.HandResult.Outcome;
 import com.whitejack.games.ginrummy.HandResult.Revealed;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,7 +37,7 @@ import java.util.Optional;
  *
  * <p>House simplifications: no first-turn upcard offer, and no line or game bonuses.
  *
- * <p>Stateless by construction. The one field is a Jackson mapper, used only to read cards.
+ * <p>Stateless by construction: no fields, so one instance serves every room thread.
  */
 public final class GinRummyGame implements GameDefinition<GinState, GinIntent, GinEvent> {
 
@@ -50,7 +49,6 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
     /** The hand is dead once the stock is down to this many cards. */
     static final int DEAD_STOCK = 2;
     private static final Duration TURN_LIMIT = Duration.ofSeconds(45);
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     @Override
     public String id() {
@@ -84,19 +82,10 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
             case "discard" -> {
                 JsonNode knock = raw.path("knock");
                 if (!knock.isMissingNode() && !knock.isBoolean()) throw new IllegalArgumentException("knock must be true or false");
-                yield new Discard(card(raw.get("card")), knock.asBoolean(false));
+                yield new Discard(Card.fromJson(raw.get("card")), knock.asBoolean(false));
             }
             default -> throw new IllegalArgumentException("gin rummy understands \"draw\" and \"discard\", not \"" + type + "\"");
         };
-    }
-
-    private static Card card(JsonNode node) {
-        if (node == null || !node.isObject()) throw new IllegalArgumentException("expected a card {rank, suit}");
-        try {
-            return JSON.treeToValue(node, Card.class);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("not a card: " + node);
-        }
     }
 
     @Override

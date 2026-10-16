@@ -6,7 +6,7 @@ import { isBotNick } from '@/network/api';
 import type { BoardProps } from '@/pages/games/live/boards';
 import { HeartsPlay, HeartsSeat, HeartsView, WireCard } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
-import { sortHand, toUiCard } from '@/utils/cards';
+import { cardKey, sameCard, sortHand, toUiCard } from '@/utils/cards';
 
 
 type Spot = 'bottom' | 'left' | 'top' | 'right';
@@ -16,8 +16,6 @@ const SPOTS: Spot[] = ['bottom', 'left', 'top', 'right'];
 
 const DIRECTION_LABEL = { LEFT: 'left', RIGHT: 'right', ACROSS: 'across', HOLD: 'hold' } as const;
 
-const cardKey = (card: WireCard) => `${card.rank}-${card.suit}`;
-const sameCard = (a: WireCard, b: WireCard) => a.rank === b.rank && a.suit === b.suit;
 
 /**
  * Hearts, rendered entirely from the server's view. Which cards are playable comes from

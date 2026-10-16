@@ -7,12 +7,9 @@ import type { BoardProps } from '@/pages/games/live/boards';
 import { TableSettings } from '@/types/game';
 import { GinHandResult, GinSeat, GinView, WireCard } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
-import { toUiCard } from '@/utils/cards';
+import { cardKey, containsCard, sameCard, toUiCard } from '@/utils/cards';
 
 
-const cardKey = (card: WireCard) => `${card.rank}-${card.suit}`;
-const sameCard = (a: WireCard | null, b: WireCard | null) => !!a && !!b && a.rank === b.rank && a.suit === b.suit;
-const contains = (cards: WireCard[], card: WireCard | null) => cards.some((c) => sameCard(c, card));
 
 /**
  * Gin Rummy, rendered from the server's view. Every button is enabled from the view's legal-move
@@ -46,7 +43,7 @@ export const GinRummyBoard: React.FC<BoardProps<GinView>> = ({ view, playerId, i
   };
 
   const handleCardClick = (card: WireCard) => {
-    if (!discarding || !contains(view.discards, card)) return;
+    if (!discarding || !containsCard(view.discards, card)) return;
     soundFx.playClick();
     setSelected((prev) => (sameCard(prev, card) ? null : card));
   };
@@ -64,8 +61,8 @@ export const GinRummyBoard: React.FC<BoardProps<GinView>> = ({ view, playerId, i
       key={cardKey(card)}
       card={toUiCard(card)}
       selected={sameCard(selected, card)}
-      disabled={discarding && !contains(view.discards, card)}
-      onClick={discarding && contains(view.discards, card) ? () => handleCardClick(card) : undefined}
+      disabled={discarding && !containsCard(view.discards, card)}
+      onClick={discarding && containsCard(view.discards, card) ? () => handleCardClick(card) : undefined}
       tooltip={sameCard(view.takenFromDiscard, card) ? 'Just taken from the pile — cannot be discarded this turn' : undefined}
       cardBack={settings.cardBack}
       fourColor={settings.fourColorDeck}
@@ -142,7 +139,7 @@ export const GinRummyBoard: React.FC<BoardProps<GinView>> = ({ view, playerId, i
                 >
                   Discard
                 </button>
-                {contains(view.ginDiscards, selected) ? (
+                {containsCard(view.ginDiscards, selected) ? (
                   <button
                     type="button"
                     onClick={() => discard(true)}
@@ -154,7 +151,7 @@ export const GinRummyBoard: React.FC<BoardProps<GinView>> = ({ view, playerId, i
                   <button
                     type="button"
                     onClick={() => discard(true)}
-                    disabled={!contains(view.knockDiscards, selected)}
+                    disabled={!containsCard(view.knockDiscards, selected)}
                     title={view.knockDiscards.length === 0 ? 'Knocking needs 10 or less deadwood after your discard' : undefined}
                     className="h-9 px-4 rounded-lg bg-felt-600 text-white text-sm font-medium hover:bg-felt-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >

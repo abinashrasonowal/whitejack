@@ -5,14 +5,13 @@ import { useSettings } from '@/app/SettingsContext';
 import { isBotNick } from '@/network/api';
 import type { BoardProps } from '@/pages/games/live/boards';
 import { TableSettings } from '@/types/game';
-import { PokerHandResult, PokerSeat, PokerView, WireCard } from '@/types/wire';
+import { PokerHandResult, PokerSeat, PokerView } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
-import { toUiCard } from '@/utils/cards';
+import { cardKey, toUiCard } from '@/utils/cards';
 
 
 const STREET_LABEL = { PREFLOP: 'Pre-flop', FLOP: 'Flop', TURN: 'Turn', RIVER: 'River' } as const;
 
-const cardKey = (card: WireCard) => `${card.rank}-${card.suit}`;
 const chips = (n: number) => n.toLocaleString();
 
 /**

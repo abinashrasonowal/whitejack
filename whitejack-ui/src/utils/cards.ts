@@ -14,6 +14,15 @@ export function toUiCard(card: WireCard): Card {
   return { id: `${rank}-${suit}`, rank, suit, value };
 }
 
+/** A stable React key for a server card. */
+export const cardKey = (card: WireCard) => `${card.rank}-${card.suit}`;
+
+/** Same rank and suit; false when either is missing. */
+export const sameCard = (a: WireCard | null, b: WireCard | null) =>
+  !!a && !!b && a.rank === b.rank && a.suit === b.suit;
+
+export const containsCard = (cards: WireCard[], card: WireCard | null) => cards.some((c) => sameCard(c, card));
+
 const SUIT_ORDER: Record<WireSuit, number> = { SPADES: 0, DIAMONDS: 1, CLUBS: 2, HEARTS: 3 };
 
 /** A hand laid out left to right: spades, diamonds, clubs, hearts, each low to high. */

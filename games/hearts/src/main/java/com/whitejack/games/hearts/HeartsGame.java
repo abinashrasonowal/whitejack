@@ -17,7 +17,6 @@ import com.whitejack.games.hearts.HeartsEvent.Played;
 import com.whitejack.games.hearts.HeartsIntent.Pass;
 import com.whitejack.games.hearts.HeartsIntent.Play;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,8 +37,7 @@ import java.util.Optional;
  * has not passed may pass. {@link #turn} only picks whose clock runs, so an absent player is
  * passed for when it expires.
  *
- * <p>Stateless by construction. The one field is a Jackson mapper, used only to read cards
- * and safe to share across room threads.
+ * <p>Stateless by construction: no fields, so one instance serves every room thread.
  */
 public final class HeartsGame implements GameDefinition<HeartsState, HeartsIntent, HeartsEvent> {
 
@@ -49,7 +47,6 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
     static final int MOON = 26;
     private static final Duration PASS_LIMIT = Duration.ofSeconds(45);
     private static final Duration PLAY_LIMIT = Duration.ofSeconds(30);
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     @Override
     public String id() {
@@ -79,21 +76,12 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
                 JsonNode cards = raw.path("cards");
                 if (!cards.isArray()) throw new IllegalArgumentException("pass needs a \"cards\" array");
                 List<Card> parsed = new ArrayList<>();
-                for (JsonNode card : cards) parsed.add(card(card));
+                for (JsonNode card : cards) parsed.add(Card.fromJson(card));
                 yield new Pass(parsed);
             }
-            case "play" -> new Play(card(raw.get("card")));
+            case "play" -> new Play(Card.fromJson(raw.get("card")));
             default -> throw new IllegalArgumentException("hearts understands \"pass\" and \"play\", not \"" + type + "\"");
         };
-    }
-
-    private static Card card(JsonNode node) {
-        if (node == null || !node.isObject()) throw new IllegalArgumentException("expected a card {rank, suit}");
-        try {
-            return JSON.treeToValue(node, Card.class);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("not a card: " + node);
-        }
     }
 
     @Override
