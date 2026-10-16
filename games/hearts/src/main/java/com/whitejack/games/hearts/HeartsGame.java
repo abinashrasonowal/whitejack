@@ -183,20 +183,21 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         Map<PlayerId, List<Card>> hands = new LinkedHashMap<>();
         dealt.hands().forEach((player, cards) -> hands.put(player, sorted(cards)));
         boolean hold = PassDirection.forHand(dealt.hand()) == PassDirection.HOLD;
-        return new HeartsState(state.seats(), dealt.hand(), hold ? HeartsPhase.PLAYING : HeartsPhase.PASSING,
-                hands, Map.of(), List.of(), hold ? holderOf(hands, Rules.TWO_OF_CLUBS) : null, 0, false,
-                HeartsState.zeroes(state.seats()), state.scores(), state.history(), List.of(), null, List.of(),
-                Map.of());
+        Table t = new Table(state);
+        t.hand = dealt.hand();
+        t.phase = hold ? HeartsPhase.PLAYING : HeartsPhase.PASSING;
+        t.hands = hands;
+        t.leader = hold ? holderOf(hands, Rules.TWO_OF_CLUBS) : null;
+        t.newHand();
+        return t.freeze();
     }
 
     private static HeartsState pass(HeartsState state, Passed passed) {
         Map<PlayerId, List<Card>> passes = new LinkedHashMap<>(state.passes());
         passes.put(passed.player(), passed.cards());
-        if (passes.size() < SEATS) {
-            return new HeartsState(state.seats(), state.hand(), state.phase(), state.hands(), passes, state.trick(),
-                    state.leader(), state.tricksPlayed(), state.heartsBroken(), state.handPoints(), state.scores(),
-                    state.history(), state.lastTrick(), state.lastTrickWinner(), state.tricks(), state.exchanged());
-        }
+        Table t = new Table(state);
+        t.passes = passes;
+        if (passes.size() < SEATS) return t.freeze();
 
         // The fourth pass: everyone's cards move at once.
         int offset = state.passDirection().offset();
@@ -212,42 +213,44 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
             hands.get(receiver).addAll(passes.get(giver));
         }
         hands.replaceAll((player, cards) -> sorted(cards));
-        return new HeartsState(state.seats(), state.hand(), HeartsPhase.PLAYING, hands, Map.of(), List.of(),
-                holderOf(hands, Rules.TWO_OF_CLUBS), 0, false, state.handPoints(), state.scores(), state.history(),
-                List.of(), null, List.of(), passes);
+        t.phase = HeartsPhase.PLAYING;
+        t.hands = hands;
+        t.passes = Map.of();
+        t.exchanged = passes;
+        t.leader = holderOf(hands, Rules.TWO_OF_CLUBS);
+        return t.freeze();
     }
 
     private static HeartsState play(HeartsState state, Played played) {
+        Table t = new Table(state);
         Map<PlayerId, List<Card>> hands = new LinkedHashMap<>(state.hands());
         List<Card> remaining = new ArrayList<>(state.handOf(played.player()));
         if (!remaining.remove(played.card())) {
             throw new IllegalStateException(played.player() + " does not hold " + played.card());
         }
         hands.put(played.player(), remaining);
+        t.hands = hands;
 
         List<PlayedCard> trick = new ArrayList<>(state.trick());
         trick.add(new PlayedCard(played.player(), played.card()));
-        boolean broken = state.heartsBroken() || played.card().suit() == Suit.HEARTS;
-        PlayerId leader = trick.size() == 1 ? played.player() : state.leader();
-
-        if (trick.size() < SEATS) {
-            return new HeartsState(state.seats(), state.hand(), state.phase(), hands, state.passes(), trick, leader,
-                    state.tricksPlayed(), broken, state.handPoints(), state.scores(), state.history(),
-                    state.lastTrick(), state.lastTrickWinner(), state.tricks(), state.exchanged());
-        }
+        t.heartsBroken = state.heartsBroken() || played.card().suit() == Suit.HEARTS;
+        if (trick.size() == 1) t.leader = played.player();
+        t.trick = trick;
+        if (trick.size() < SEATS) return t.freeze();
 
         PlayerId winner = Rules.trickWinner(trick);
         Map<PlayerId, Integer> handPoints = new LinkedHashMap<>(state.handPoints());
         handPoints.merge(winner, trick.stream().mapToInt(p -> Rules.points(p.card())).sum(), Integer::sum);
-        int tricksPlayed = state.tricksPlayed() + 1;
         List<Trick> tricks = new ArrayList<>(state.tricks());
         tricks.add(new Trick(trick, winner));
-
-        if (tricksPlayed < HAND_SIZE) {
-            return new HeartsState(state.seats(), state.hand(), state.phase(), hands, state.passes(), List.of(),
-                    winner, tricksPlayed, broken, handPoints, state.scores(), state.history(), trick, winner, tricks,
-                    state.exchanged());
-        }
+        t.trick = List.of();
+        t.leader = winner;
+        t.tricksPlayed = state.tricksPlayed() + 1;
+        t.handPoints = handPoints;
+        t.lastTrick = trick;
+        t.lastTrickWinner = winner;
+        t.tricks = tricks;
+        if (t.tricksPlayed < HAND_SIZE) return t.freeze();
 
         // Trick 13: score the hand.
         boolean moon = handPoints.containsValue(MOON);
@@ -261,10 +264,72 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
         }
         List<List<Integer>> history = new ArrayList<>(state.history());
         history.add(row);
-        boolean over = Collections.max(scores.values()) >= TARGET;
-        return new HeartsState(state.seats(), state.hand(), over ? HeartsPhase.GAME_OVER : HeartsPhase.SCORING,
-                hands, state.passes(), List.of(), winner, tricksPlayed, broken, handPoints, scores, history, trick,
-                winner, tricks, state.exchanged());
+        t.scores = scores;
+        t.history = history;
+        t.phase = Collections.max(scores.values()) >= TARGET ? HeartsPhase.GAME_OVER : HeartsPhase.SCORING;
+        return t.freeze();
+    }
+
+    /**
+     * A working copy of one state, local to a single {@code apply}, as in {@code PokerGame}: each
+     * transition names only the fields it changes instead of restating all sixteen, where two
+     * same-typed arguments could swap without a compile error. Frozen (and deep-copied by the
+     * record) before it leaves; never stored.
+     */
+    private static final class Table {
+        final List<Seat> seats;
+        int hand;
+        HeartsPhase phase;
+        Map<PlayerId, List<Card>> hands;
+        Map<PlayerId, List<Card>> passes;
+        List<PlayedCard> trick;
+        PlayerId leader;
+        int tricksPlayed;
+        boolean heartsBroken;
+        Map<PlayerId, Integer> handPoints;
+        Map<PlayerId, Integer> scores;
+        List<List<Integer>> history;
+        List<PlayedCard> lastTrick;
+        PlayerId lastTrickWinner;
+        List<Trick> tricks;
+        Map<PlayerId, List<Card>> exchanged;
+
+        Table(HeartsState s) {
+            seats = s.seats();
+            hand = s.hand();
+            phase = s.phase();
+            hands = s.hands();
+            passes = s.passes();
+            trick = s.trick();
+            leader = s.leader();
+            tricksPlayed = s.tricksPlayed();
+            heartsBroken = s.heartsBroken();
+            handPoints = s.handPoints();
+            scores = s.scores();
+            history = s.history();
+            lastTrick = s.lastTrick();
+            lastTrickWinner = s.lastTrickWinner();
+            tricks = s.tricks();
+            exchanged = s.exchanged();
+        }
+
+        /** Clears everything that belongs to one hand; scores and history carry over. */
+        void newHand() {
+            passes = Map.of();
+            trick = List.of();
+            tricksPlayed = 0;
+            heartsBroken = false;
+            handPoints = HeartsState.zeroes(seats);
+            lastTrick = List.of();
+            lastTrickWinner = null;
+            tricks = List.of();
+            exchanged = Map.of();
+        }
+
+        HeartsState freeze() {
+            return new HeartsState(seats, hand, phase, hands, passes, trick, leader, tricksPlayed, heartsBroken,
+                    handPoints, scores, history, lastTrick, lastTrickWinner, tricks, exchanged);
+        }
     }
 
     @Override

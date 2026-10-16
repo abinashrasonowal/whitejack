@@ -102,11 +102,7 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
     @Override
     public GinState createInitialState(List<Seat> seats, Map<String, String> options, EngineContext ctx) {
         if (seats.size() != 2) throw new IllegalStateException("gin rummy needs 2 seats, got " + seats.size());
-        Map<PlayerId, Integer> zero = new LinkedHashMap<>();
-        for (Seat seat : seats) zero.put(seat.id(), 0);
-        GinState seated = new GinState(seats, -1, seats.get(1).id(), GinPhase.SCORING, null, Map.of(), List.of(),
-                List.of(), null, zero, List.of(), null);
-        return apply(seated, deal(0, seats.get(0).id(), seats, ctx.random()));
+        return apply(GinState.seated(seats), deal(0, seats.get(0).id(), seats, ctx.random()));
     }
 
     private static Dealt deal(int hand, PlayerId dealer, List<Seat> seats, RandomSource random) {
@@ -192,9 +188,16 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
     private static GinState startHand(GinState state, Dealt dealt) {
         Map<PlayerId, List<Card>> hands = new LinkedHashMap<>();
         dealt.hands().forEach((player, cards) -> hands.put(player, sorted(cards)));
-        PlayerId first = state.seats().get(1 - state.positionOf(dealt.dealer())).id();
-        return new GinState(state.seats(), dealt.hand(), dealt.dealer(), GinPhase.DRAW, first, hands, dealt.stock(),
-                List.of(dealt.upcard()), null, state.scores(), state.history(), state.lastHand());
+        Table t = new Table(state);
+        t.hand = dealt.hand();
+        t.dealer = dealt.dealer();
+        t.phase = GinPhase.DRAW;
+        t.turn = state.opponentOf(dealt.dealer());
+        t.hands = hands;
+        t.stock = dealt.stock();
+        t.discard = List.of(dealt.upcard());
+        t.takenFromDiscard = null;
+        return t.freeze();
     }
 
     private static GinState draw(GinState state, Drew drew) {
@@ -214,9 +217,13 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
         List<Card> hand = new ArrayList<>(state.handOf(drew.player()));
         hand.add(drew.card());
         hands.put(drew.player(), sorted(hand));
-        return new GinState(state.seats(), state.hand(), state.dealer(), GinPhase.DISCARD, state.turn(), hands, stock,
-                discard, drew.source() == DrawSource.DISCARD ? drew.card() : null, state.scores(), state.history(),
-                state.lastHand());
+        Table t = new Table(state);
+        t.phase = GinPhase.DISCARD;
+        t.hands = hands;
+        t.stock = stock;
+        t.discard = discard;
+        t.takenFromDiscard = drew.source() == DrawSource.DISCARD ? drew.card() : null;
+        return t.freeze();
     }
 
     private static GinState discard(GinState state, Discarded discarded) {
@@ -234,9 +241,13 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
             HandResult dead = new HandResult(Outcome.DEAD, null, null, 0, List.of());
             return endHand(state, hands, pile, dead, List.of(0, 0));
         }
-        return new GinState(state.seats(), state.hand(), state.dealer(), GinPhase.DRAW,
-                state.opponentOf(discarded.player()), hands, state.stock(), pile, null, state.scores(), state.history(),
-                state.lastHand());
+        Table t = new Table(state);
+        t.phase = GinPhase.DRAW;
+        t.turn = state.opponentOf(discarded.player());
+        t.hands = hands;
+        t.discard = pile;
+        t.takenFromDiscard = null;
+        return t.freeze();
     }
 
     /** A knock: lay both hands down, let the defender lay off (unless gin), and score. */
@@ -284,8 +295,56 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
         List<List<Integer>> history = new ArrayList<>(state.history());
         history.add(row);
         boolean over = scores.values().stream().anyMatch(score -> score >= TARGET);
-        return new GinState(state.seats(), state.hand(), state.dealer(), over ? GinPhase.GAME_OVER : GinPhase.SCORING,
-                null, hands, state.stock(), pile, null, scores, history, result);
+        Table t = new Table(state);
+        t.phase = over ? GinPhase.GAME_OVER : GinPhase.SCORING;
+        t.turn = null;
+        t.hands = hands;
+        t.discard = pile;
+        t.takenFromDiscard = null;
+        t.scores = scores;
+        t.history = history;
+        t.lastHand = result;
+        return t.freeze();
+    }
+
+    /**
+     * A working copy of one state, local to a single {@code apply}, as in {@code PokerGame}: a
+     * transition names only what it changes, so {@code dealer}/{@code turn} or
+     * {@code stock}/{@code discard} cannot be swapped by position. Never stored.
+     */
+    private static final class Table {
+        final List<Seat> seats;
+        int hand;
+        PlayerId dealer;
+        GinPhase phase;
+        PlayerId turn;
+        Map<PlayerId, List<Card>> hands;
+        List<Card> stock;
+        List<Card> discard;
+        Card takenFromDiscard;
+        Map<PlayerId, Integer> scores;
+        List<List<Integer>> history;
+        HandResult lastHand;
+
+        Table(GinState s) {
+            seats = s.seats();
+            hand = s.hand();
+            dealer = s.dealer();
+            phase = s.phase();
+            turn = s.turn();
+            hands = s.hands();
+            stock = s.stock();
+            discard = s.discard();
+            takenFromDiscard = s.takenFromDiscard();
+            scores = s.scores();
+            history = s.history();
+            lastHand = s.lastHand();
+        }
+
+        GinState freeze() {
+            return new GinState(seats, hand, dealer, phase, turn, hands, stock, discard, takenFromDiscard, scores,
+                    history, lastHand);
+        }
     }
 
     @Override
