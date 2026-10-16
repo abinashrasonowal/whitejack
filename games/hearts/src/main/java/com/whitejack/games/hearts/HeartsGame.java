@@ -141,7 +141,7 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
             return Validation.OK;
         }
 
-        Play play = (Play) intent;
+        if (!(intent instanceof Play play)) throw new IllegalStateException("unhandled intent: " + intent);
         if (state.phase() == HeartsPhase.PASSING) {
             return Validation.reject(ErrorCode.WRONG_PHASE, "cards are still being passed");
         }
@@ -161,7 +161,8 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
     public List<HeartsEvent> reduce(HeartsState state, HeartsIntent intent, PlayerId actor, EngineContext ctx) {
         if (intent instanceof Pass pass) return List.of(new Passed(actor, pass.cards()));
 
-        Played played = new Played(actor, ((Play) intent).card());
+        if (!(intent instanceof Play play)) throw new IllegalStateException("unhandled intent: " + intent);
+        Played played = new Played(actor, play.card());
         HeartsState next = apply(state, played);
         if (next.phase() != HeartsPhase.SCORING) return List.of(played);
         // The last card of a hand also deals the next one, so the table never rests between hands.
@@ -170,10 +171,12 @@ public final class HeartsGame implements GameDefinition<HeartsState, HeartsInten
 
     @Override
     public HeartsState apply(HeartsState state, HeartsEvent event) {
-        // Java 17: no pattern switch yet. The interface is sealed, so these three are all of them.
+        // Java 17: no pattern switch yet, so a new event type fails loudly here instead of being
+        // cast to the wrong one.
         if (event instanceof Dealt dealt) return startHand(state, dealt);
         if (event instanceof Passed passed) return pass(state, passed);
-        return play(state, (Played) event);
+        if (event instanceof Played played) return play(state, played);
+        throw new IllegalStateException("unhandled event: " + event);
     }
 
     private static HeartsState startHand(HeartsState state, Dealt dealt) {

@@ -142,7 +142,7 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
             return Validation.OK;
         }
 
-        Discard discard = (Discard) intent;
+        if (!(intent instanceof Discard discard)) throw new IllegalStateException("unhandled intent: " + intent);
         if (state.phase() != GinPhase.DISCARD) return Validation.reject(ErrorCode.WRONG_PHASE, "draw a card first");
         List<Card> hand = state.handOf(actor);
         if (!hand.contains(discard.card())) return Validation.reject(ErrorCode.ILLEGAL_MOVE, "that card is not in your hand");
@@ -171,7 +171,7 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
             Card card = draw.source() == DrawSource.STOCK ? state.stock().get(0) : state.discardTop();
             return List.of(new Drew(actor, draw.source(), card));
         }
-        Discard discard = (Discard) intent;
+        if (!(intent instanceof Discard discard)) throw new IllegalStateException("unhandled intent: " + intent);
         Discarded discarded = new Discarded(actor, discard.card(), discard.knock());
         GinState next = apply(state, discarded);
         if (next.phase() != GinPhase.SCORING) return List.of(discarded);
@@ -181,10 +181,12 @@ public final class GinRummyGame implements GameDefinition<GinState, GinIntent, G
 
     @Override
     public GinState apply(GinState state, GinEvent event) {
-        // Java 17: no pattern switch yet. The interface is sealed, so these three are all of them.
+        // Java 17: no pattern switch yet, so a new event type fails loudly here instead of being
+        // cast to the wrong one.
         if (event instanceof Dealt dealt) return startHand(state, dealt);
         if (event instanceof Drew drew) return draw(state, drew);
-        return discard(state, (Discarded) event);
+        if (event instanceof Discarded discarded) return discard(state, discarded);
+        throw new IllegalStateException("unhandled event: " + event);
     }
 
     private static GinState startHand(GinState state, Dealt dealt) {

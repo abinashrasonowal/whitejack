@@ -173,7 +173,8 @@ public final class PokerGame implements GameDefinition<PokerState, PokerIntent, 
         if (intent instanceof Fold) acted = new Acted(actor, Action.FOLD, 0);
         else if (intent instanceof Check) acted = new Acted(actor, Action.CHECK, 0);
         else if (intent instanceof Call) acted = new Acted(actor, Action.CALL, 0);
-        else acted = new Acted(actor, Action.RAISE, ((Raise) intent).to());
+        else if (intent instanceof Raise raise) acted = new Acted(actor, Action.RAISE, raise.to());
+        else throw new IllegalStateException("unhandled intent: " + intent);
 
         PokerState next = apply(state, acted);
         if (next.phase() != PokerPhase.SETTLED) return List.of(acted);
@@ -183,9 +184,11 @@ public final class PokerGame implements GameDefinition<PokerState, PokerIntent, 
 
     @Override
     public PokerState apply(PokerState state, PokerEvent event) {
-        // Java 17: no pattern switch yet. The interface is sealed, so these two are all of them.
+        // Java 17: no pattern switch yet, so a new event type fails loudly here instead of being
+        // cast to the wrong one.
         if (event instanceof Dealt dealt) return startHand(state, dealt);
-        return act(state, (Acted) event);
+        if (event instanceof Acted acted) return act(state, acted);
+        throw new IllegalStateException("unhandled event: " + event);
     }
 
     private static PokerState startHand(PokerState state, Dealt dealt) {
