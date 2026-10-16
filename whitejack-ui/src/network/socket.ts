@@ -25,12 +25,16 @@ export class WhitejackSocket {
 
   constructor(private readonly token: string) {}
 
-  onFrame(listener: (frame: ServerFrame) => void): void {
+  /** @returns a function that unsubscribes the listener */
+  onFrame(listener: (frame: ServerFrame) => void): () => void {
     this.frameListeners.add(listener);
+    return () => this.frameListeners.delete(listener);
   }
 
-  onStatus(listener: (status: SocketStatus) => void): void {
+  /** @returns a function that unsubscribes the listener */
+  onStatus(listener: (status: SocketStatus) => void): () => void {
     this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
   }
 
   connect(): void {
@@ -43,12 +47,15 @@ export class WhitejackSocket {
     if (this.ws?.readyState === WebSocket.OPEN) this.send('join', this.joinPayload);
   }
 
-  /** @returns the frame id, which a later `accepted`/`rejected` echoes as `re` */
-  send(type: string, payload: object = {}): string {
+  /**
+   * @returns the frame id, which a later `accepted`/`rejected` echoes as `re`; null when the
+   *     socket is not open and nothing was sent. Frames are not queued: a move made while
+   *     reconnecting may no longer be legal by the time the socket is back.
+   */
+  send(type: string, payload: object = {}): string | null {
+    if (this.ws?.readyState !== WebSocket.OPEN) return null;
     const id = `c${++this.nextId}`;
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ v: 1, id, type, payload }));
-    }
+    this.ws.send(JSON.stringify({ v: 1, id, type, payload }));
     return id;
   }
 

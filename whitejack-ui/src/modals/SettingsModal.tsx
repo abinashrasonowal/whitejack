@@ -1,53 +1,46 @@
 import React from 'react';
 import { Dialog, dialogPrimaryButton } from '@/components/Dialog';
+import { useSettings } from '@/app/SettingsContext';
 import { TableSettings } from '@/types/game';
 import { soundFx } from '@/utils/audio';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  settings: TableSettings;
-  onUpdateSettings: (newSettings: TableSettings) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-  settings,
-  onUpdateSettings,
-}) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  const { settings, update } = useSettings();
   if (!isOpen) return null;
 
   const handleToggleSound = () => {
     soundFx.playClick();
     const updated = !settings.soundEnabled;
-    soundFx.enabled = updated;
-    onUpdateSettings({ ...settings, soundEnabled: updated });
+    update({ soundEnabled: updated });
   };
 
   const handleVolumeChange = (vol: number) => {
-    soundFx.volume = vol;
-    onUpdateSettings({ ...settings, soundVolume: vol });
+    update({ soundVolume: vol });
   };
 
   const handleSelectTheme = (theme: TableSettings['tableTheme']) => {
     soundFx.playClick();
-    onUpdateSettings({ ...settings, tableTheme: theme });
+    update({ tableTheme: theme });
   };
 
   const handleSelectCardBack = (back: TableSettings['cardBack']) => {
     soundFx.playCardDeal();
-    onUpdateSettings({ ...settings, cardBack: back });
+    update({ cardBack: back });
   };
 
   const handleToggleFourColor = () => {
     soundFx.playClick();
-    onUpdateSettings({ ...settings, fourColorDeck: !settings.fourColorDeck });
+    update({ fourColorDeck: !settings.fourColorDeck });
   };
 
   const handleToggleSort = (sortBy: 'suit' | 'rank') => {
     soundFx.playClick();
-    onUpdateSettings({ ...settings, sortBy });
+    update({ sortBy });
   };
 
   return (

@@ -1,3 +1,5 @@
+import type { TableSettings } from '@/types/game';
+
 // Web Storage can throw (private windows, blocked site data), so every access goes through
 // here and degrades to "nothing stored" instead of crashing the page.
 
@@ -28,3 +30,17 @@ const NICK_KEY = 'whitejack.nick';
 /** The name used last time on this browser, or '' if none. */
 export const loadNick = () => readLocal(NICK_KEY) ?? '';
 export const saveNick = (nick: string) => writeLocal(NICK_KEY, nick);
+
+const SETTINGS_KEY = 'whitejack.settings';
+
+/** Saved table settings, or {} when none are stored or they cannot be read. */
+export function loadSettings(): Partial<TableSettings> {
+  try {
+    const parsed = JSON.parse(readLocal(SETTINGS_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export const saveSettings = (settings: TableSettings) => writeLocal(SETTINGS_KEY, JSON.stringify(settings));

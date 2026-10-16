@@ -134,6 +134,13 @@ export interface GinView {
   winner: string | null;
 }
 
+/** The view each server game module sends, keyed by its id. */
+export interface ViewByGame {
+  hearts: HeartsView;
+  'gin-rummy': GinView;
+  poker: PokerView;
+}
+
 /** `game` is the server module id ("poker", "hearts"); it picks the board that renders `view`. */
 type ViewFrame =
   | { viewType: 'lobby'; game: string; view: LobbyView }

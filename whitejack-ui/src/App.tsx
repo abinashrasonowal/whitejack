@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSettings } from '@/app/SettingsContext';
 import { useIdentity } from '@/app/useIdentity';
 import { Footer } from '@/layout/Footer';
 import { Header } from '@/layout/Header';
@@ -9,7 +10,8 @@ import { ABOUT_HASH, AboutPage } from '@/pages/about/AboutPage';
 import { GameTable } from '@/pages/games/offline/GameTable';
 import { JoinInvite } from '@/pages/lobby/JoinInvite';
 import { LobbyPage } from '@/pages/lobby/LobbyPage';
-import { GameKey, RoomRules, TableSettings } from '@/types/game';
+import { offlineGameForCode } from '@/config/games';
+import { GameKey, RoomRules } from '@/types/game';
 import { soundFx } from '@/utils/audio';
 import { ROOM_CODE } from '@/utils/cards';
 import { loadNick, saveNick } from '@/utils/storage';
@@ -25,14 +27,7 @@ export default function App() {
     rule3: false,
   });
 
-  const [settings, setSettings] = useState<TableSettings>({
-    soundEnabled: true,
-    soundVolume: 0.7,
-    tableTheme: 'slate',
-    cardBack: 'geometric-blue',
-    fourColorDeck: false,
-    sortBy: 'suit',
-  });
+  const { settings, update } = useSettings();
 
   const [aboutOpen, setAboutOpen] = useState<boolean>(() => window.location.hash === ABOUT_HASH);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -71,18 +66,13 @@ export default function App() {
       setInvite(hash);
     } else if (hash && hash.length >= 4) {
       setActiveRoomCode(hash);
-      if (hash.startsWith('SPD')) setActiveGameKey('spades');
-      else if (hash.startsWith('ECH')) setActiveGameKey('euchre');
-      else if (hash.startsWith('OHL')) setActiveGameKey('oh_hell');
-      else if (hash.startsWith('BOX')) setActiveGameKey('custom');
-      else setActiveGameKey('hearts');
+      setActiveGameKey(offlineGameForCode(hash));
     }
   }, []);
 
   const handleToggleSound = () => {
     const updated = !settings.soundEnabled;
-    soundFx.enabled = updated;
-    setSettings((prev) => ({ ...prev, soundEnabled: updated }));
+    update({ soundEnabled: updated });
     if (updated) {
       soundFx.playClick();
     }
@@ -108,13 +98,7 @@ export default function App() {
       enterLive(code, nickname);
       return;
     }
-    let key: GameKey = 'hearts';
-    if (code.startsWith('SPD')) key = 'spades';
-    else if (code.startsWith('ECH')) key = 'euchre';
-    else if (code.startsWith('OHL')) key = 'oh_hell';
-    else if (code.startsWith('BOX')) key = 'custom';
-
-    handleStartGame(key, nickname, code, {
+    handleStartGame(offlineGameForCode(code), nickname, code, {
       rule1: true,
       rule2: true,
       rule3: false,
@@ -160,7 +144,6 @@ export default function App() {
               nick={live.nick}
               playerId={me.playerId}
               token={me.token}
-              settings={settings}
               onLeave={handleLeaveTable}
             />
           ) : (
@@ -191,7 +174,6 @@ export default function App() {
             roomCode={activeRoomCode}
             playerName={activePlayerName}
             rules={activeRules}
-            settings={settings}
             onLeaveTable={handleLeaveTable}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
@@ -205,8 +187,6 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onUpdateSettings={setSettings}
       />
     </div>
   );

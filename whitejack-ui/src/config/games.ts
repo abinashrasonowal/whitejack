@@ -165,3 +165,15 @@ export const DEFAULT_RULES: Record<GameKey, RoomRules> = {
   oh_hell: { rule1: true, rule2: true, rule3: true },
   custom: { rule1: true, rule2: true, rule3: false },
 };
+
+/**
+ * The offline demo an old prefixed room code opens (#SPD-3190 → spades), matched on the prefix of
+ * each game's `defaultCode`; anything else opens Hearts, as it always has.
+ */
+export function offlineGameForCode(code: string): GameKey {
+  const upper = code.toUpperCase();
+  const match = Object.values(GAME_DEFINITIONS).find(
+    (def) => def.defaultCode && upper.startsWith(def.defaultCode.split('-')[0])
+  );
+  return match?.key ?? 'hearts';
+}

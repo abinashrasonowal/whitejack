@@ -1,20 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { BotThinking } from '@/components/BotThinking';
 import { CardView } from '@/components/CardView';
+import { useSettings } from '@/app/SettingsContext';
 import { isBotNick } from '@/network/api';
+import type { BoardProps } from '@/pages/games/live/boards';
 import { TableSettings } from '@/types/game';
 import { PokerHandResult, PokerSeat, PokerView, WireCard } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
 import { toUiCard } from '@/utils/cards';
 
-interface PokerBoardProps {
-  view: PokerView;
-  playerId: string;
-  intent: (payload: object) => string;
-  settings: TableSettings;
-  /** Extra sidebar sections the live table adds, such as the bots' reasoning. */
-  aside?: React.ReactNode;
-}
 
 const STREET_LABEL = { PREFLOP: 'Pre-flop', FLOP: 'Flop', TURN: 'Turn', RIVER: 'River' } as const;
 
@@ -35,7 +29,8 @@ const around = (offset: number, count: number, radiusX: number, radiusY: number)
  * raise range, come from `view.legal` / `minRaiseTo` / `maxRaiseTo`; the raise presets only
  * pick a number inside that range, so this component never decides a rule.
  */
-export const PokerBoard: React.FC<PokerBoardProps> = ({ view, playerId, intent, settings, aside }) => {
+export const PokerBoard: React.FC<BoardProps<PokerView>> = ({ view, playerId, intent, aside }) => {
+  const { settings } = useSettings();
   const myTurn = view.phase === 'BETTING' && view.onClock === playerId && view.legal.length > 0;
   const canRaise = myTurn && view.legal.includes('raise');
   const [raiseTo, setRaiseTo] = useState(view.minRaiseTo);

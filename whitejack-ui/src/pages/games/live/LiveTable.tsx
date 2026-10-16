@@ -5,12 +5,9 @@ import { GAME_DEFINITIONS } from '@/config/games';
 import { ROOM_SLOT_ID } from '@/layout/Header';
 import { addBot, botNotes, isBotNick, listGames } from '@/network/api';
 import { useRoom } from '@/network/useRoom';
-import { GinRummyBoard } from '@/pages/games/gin-rummy/GinRummyBoard';
-import { HeartsBoard } from '@/pages/games/hearts/HeartsBoard';
-import { PokerBoard } from '@/pages/games/poker/PokerBoard';
-import { TableSettings } from '@/types/game';
-import { BotHandNotes, GinView, HeartsView, PokerView } from '@/types/wire';
+import { BotHandNotes } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
+import { boardFor } from './boards';
 import { WaitingRoom } from './WaitingRoom';
 
 interface LiveTableProps {
@@ -18,7 +15,6 @@ interface LiveTableProps {
   nick: string;
   playerId: string;
   token: string;
-  settings: TableSettings;
   onLeave: () => void;
 }
 
@@ -33,7 +29,7 @@ const STATUS_LABEL = {
  * Every server-backed room: the navbar room controls, errors, the waiting room, then the board for whichever
  * game the server says this room plays. Boards receive views and send intents; none holds rules.
  */
-export const LiveTable: React.FC<LiveTableProps> = ({ room, nick, playerId, token, settings, onLeave }) => {
+export const LiveTable: React.FC<LiveTableProps> = ({ room, nick, playerId, token, onLeave }) => {
   const { status, lobby, game, gameId, error, fatal, start, intent, leave, closeRoom } = useRoom(room, nick, token);
   const [copied, setCopied] = useState(false);
   const def = Object.values(GAME_DEFINITIONS).find((d) => d.serverGameId === gameId);
@@ -95,16 +91,9 @@ export const LiveTable: React.FC<LiveTableProps> = ({ room, nick, playerId, toke
   const aside = <BotNotesPanel notes={notes} hasBots={hasBots} />;
 
   const board = () => {
-    if (gameId === 'hearts') {
-      return <HeartsBoard view={game as HeartsView} playerId={playerId} intent={intent} settings={settings} aside={aside} />;
-    }
-    if (gameId === 'gin-rummy') {
-      return <GinRummyBoard view={game as GinView} playerId={playerId} intent={intent} settings={settings} aside={aside} />;
-    }
-    if (gameId === 'poker') {
-      return <PokerBoard view={game as PokerView} playerId={playerId} intent={intent} settings={settings} aside={aside} />;
-    }
-    return <p className="text-sm text-stone-600">This client cannot render “{gameId}” yet.</p>;
+    const Board = boardFor(gameId);
+    if (!Board) return <p className="text-sm text-stone-600">This client cannot render “{gameId}” yet.</p>;
+    return <Board view={game} playerId={playerId} intent={intent} aside={aside} />;
   };
 
   const headerButton =

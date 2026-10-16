@@ -1,20 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { BotThinking } from '@/components/BotThinking';
 import { CardView } from '@/components/CardView';
+import { useSettings } from '@/app/SettingsContext';
 import { isBotNick } from '@/network/api';
-import { TableSettings } from '@/types/game';
+import type { BoardProps } from '@/pages/games/live/boards';
 import { HeartsPlay, HeartsSeat, HeartsView, WireCard } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
 import { sortHand, toUiCard } from '@/utils/cards';
 
-interface HeartsBoardProps {
-  view: HeartsView;
-  playerId: string;
-  intent: (payload: object) => string;
-  settings: TableSettings;
-  /** Extra sidebar sections the live table adds, such as the bots' reasoning. */
-  aside?: React.ReactNode;
-}
 
 type Spot = 'bottom' | 'left' | 'top' | 'right';
 
@@ -30,7 +23,8 @@ const sameCard = (a: WireCard, b: WireCard) => a.rank === b.rank && a.suit === b
  * Hearts, rendered entirely from the server's view. Which cards are playable comes from
  * `view.legal`, so this component enables buttons but never decides a rule.
  */
-export const HeartsBoard: React.FC<HeartsBoardProps> = ({ view, playerId, intent, settings, aside }) => {
+export const HeartsBoard: React.FC<BoardProps<HeartsView>> = ({ view, playerId, intent, aside }) => {
+  const { settings } = useSettings();
   const [selected, setSelected] = useState<WireCard[]>([]);
 
   // A new hand, or the end of passing, clears whatever was picked.

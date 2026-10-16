@@ -1,20 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { BotThinking } from '@/components/BotThinking';
 import { CardView } from '@/components/CardView';
+import { useSettings } from '@/app/SettingsContext';
 import { isBotNick } from '@/network/api';
+import type { BoardProps } from '@/pages/games/live/boards';
 import { TableSettings } from '@/types/game';
 import { GinHandResult, GinSeat, GinView, WireCard } from '@/types/wire';
 import { soundFx } from '@/utils/audio';
 import { toUiCard } from '@/utils/cards';
 
-interface GinRummyBoardProps {
-  view: GinView;
-  playerId: string;
-  intent: (payload: object) => string;
-  settings: TableSettings;
-  /** Extra sidebar sections the live table adds, such as the bots' reasoning. */
-  aside?: React.ReactNode;
-}
 
 const cardKey = (card: WireCard) => `${card.rank}-${card.suit}`;
 const sameCard = (a: WireCard | null, b: WireCard | null) => !!a && !!b && a.rank === b.rank && a.suit === b.suit;
@@ -24,7 +18,8 @@ const contains = (cards: WireCard[], card: WireCard | null) => cards.some((c) =>
  * Gin Rummy, rendered from the server's view. Every button is enabled from the view's legal-move
  * lists (`drawSources`, `discards`, `knockDiscards`, `ginDiscards`); this component decides no rule.
  */
-export const GinRummyBoard: React.FC<GinRummyBoardProps> = ({ view, playerId, intent, settings, aside }) => {
+export const GinRummyBoard: React.FC<BoardProps<GinView>> = ({ view, playerId, intent, aside }) => {
+  const { settings } = useSettings();
   const [selected, setSelected] = useState<WireCard | null>(null);
 
   // A new turn phase or a new hand clears the pick.
