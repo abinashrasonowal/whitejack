@@ -1,6 +1,7 @@
 package com.whitejack.server.config;
 
 import com.whitejack.bots.Advisor;
+import com.whitejack.bots.CircuitBreakingAdvisor;
 import com.whitejack.bots.JevAdvisor;
 import java.net.URI;
 import java.time.Duration;
@@ -24,12 +25,16 @@ public class BotConfig {
             @Value("${whitejack.bots.openrouter-api-key:}") String apiKey,
             @Value("${whitejack.bots.model:" + JevAdvisor.DEFAULT_MODEL + "}") String model,
             @Value("${whitejack.bots.endpoint:" + JevAdvisor.DEFAULT_ENDPOINT + "}") URI endpoint,
-            @Value("${whitejack.bots.timeout:3s}") Duration timeout) {
+            @Value("${whitejack.bots.timeout:3s}") Duration timeout,
+            @Value("${whitejack.bots.breaker-failures:3}") int breakerFailures,
+            @Value("${whitejack.bots.breaker-cooldown:30s}") Duration breakerCooldown) {
         if (apiKey.isBlank()) {
             LOG.info("whitejack.bots.openrouter-api-key is not set; bots play heuristic moves only");
             return Advisor.NONE;
         }
         LOG.info("bots consult {} at {}", model, endpoint);
-        return new JevAdvisor(endpoint, apiKey, model, timeout);
+        // An outage should cost a few timed-out moves, not a timeout on every move of every bot.
+        return new CircuitBreakingAdvisor(new JevAdvisor(endpoint, apiKey, model, timeout), breakerFailures,
+                breakerCooldown);
     }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Card,
   GameKey,
@@ -6,7 +6,6 @@ import {
   PlayedCard,
   Player,
   RoomRules,
-  TableSettings,
 } from '@/types/game';
 import {
   calculateHeartsTrickPoints,
@@ -24,6 +23,7 @@ import {
   sortCards,
   SUIT_SYMBOLS,
 } from '@/utils/deck';
+import { useSettings } from '@/app/SettingsContext';
 import { soundFx } from '@/utils/audio';
 import { CardView } from '@/components/CardView';
 import { GAME_DEFINITIONS } from '@/config/games';
@@ -33,7 +33,6 @@ interface GameTableProps {
   roomCode: string;
   playerName: string;
   rules: RoomRules;
-  settings: TableSettings;
   onLeaveTable: () => void;
   onOpenSettings: () => void;
 }
@@ -43,10 +42,10 @@ export const GameTable: React.FC<GameTableProps> = ({
   roomCode,
   playerName,
   rules,
-  settings,
   onLeaveTable,
   onOpenSettings,
 }) => {
+  const { settings } = useSettings();
   const gameDef = GAME_DEFINITIONS[gameKey];
 
   // Game state
@@ -144,8 +143,13 @@ export const GameTable: React.FC<GameTableProps> = ({
     setGameLogs((prev) => [{ id: Math.random().toString(), text, type, timestamp: time }, ...prev.slice(0, 49)]);
   }, []);
 
+  // Read through a ref so changing the sort order re-sorts the hand (below) instead of re-dealing it.
+  const sortByRef = useRef(settings.sortBy);
+  sortByRef.current = settings.sortBy;
+
   // Initialize a fresh deal
   const startNewDeal = useCallback(() => {
+    const sortBy = sortByRef.current;
     let rawDeck = gameKey === 'euchre' ? createEuchreDeck() : createFullDeck();
     let deck = shuffleDeck(rawDeck);
 
@@ -155,10 +159,10 @@ export const GameTable: React.FC<GameTableProps> = ({
     if (gameKey === 'euchre') cardsPerPlayer = 5;
     if (gameKey === 'custom') cardsPerPlayer = 7;
 
-    const p0Cards = sortCards(deck.slice(0, cardsPerPlayer), settings.sortBy);
-    const p1Cards = sortCards(deck.slice(cardsPerPlayer, cardsPerPlayer * 2), settings.sortBy);
-    const p2Cards = sortCards(deck.slice(cardsPerPlayer * 2, cardsPerPlayer * 3), settings.sortBy);
-    const p3Cards = sortCards(deck.slice(cardsPerPlayer * 3, cardsPerPlayer * 4), settings.sortBy);
+    const p0Cards = sortCards(deck.slice(0, cardsPerPlayer), sortBy);
+    const p1Cards = sortCards(deck.slice(cardsPerPlayer, cardsPerPlayer * 2), sortBy);
+    const p2Cards = sortCards(deck.slice(cardsPerPlayer * 2, cardsPerPlayer * 3), sortBy);
+    const p3Cards = sortCards(deck.slice(cardsPerPlayer * 3, cardsPerPlayer * 4), sortBy);
 
     const remaining = deck.slice(cardsPerPlayer * 4);
     setSandboxDeck(remaining);
@@ -207,12 +211,16 @@ export const GameTable: React.FC<GameTableProps> = ({
     } else {
       setActivePlayerIndex(0);
     }
-  }, [gameKey, roundNumber, rules.rule2, settings.sortBy, addLog]);
+  }, [gameKey, roundNumber, rules.rule2, addLog]);
 
-  // Deal on mount
+  // Deal on mount and whenever the round number moves on: startNewDeal changes with it.
   useEffect(() => {
     startNewDeal();
   }, [startNewDeal]);
+
+  useEffect(() => {
+    setPlayers((prev) => prev.map((p) => ({ ...p, cards: sortCards(p.cards, settings.sortBy) })));
+  }, [settings.sortBy]);
 
   // Passing phase handler (Hearts)
   const handlePassCardsConfirm = () => {
@@ -495,8 +503,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   // Next Round / Rematch
   const handleNextRound = () => {
-    setRoundNumber((r) => r + 1);
-    startNewDeal();
+    setRoundNumber((r) => r + 1); // the deal effect deals the new round once
   };
 
   // Send quick reaction

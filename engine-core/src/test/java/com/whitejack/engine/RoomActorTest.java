@@ -245,6 +245,24 @@ class RoomActorTest {
     }
 
     @Test
+    void aFinishedGameFinishesTheTableButKeepsTheRoomOpen() throws Exception {
+        RoomActor actor = playing(new FakeGame(null, 1, 3));
+        actor.offer(new Command.Submit(ABI, bump(3), "c1"));
+        broadcaster.nextDirect();
+        assertEquals(new FakeGame.View(List.of("abi-e0", "abi-e1", "abi-e2"), true),
+                broadcaster.nextBroadcast().get(ABI), "everyone sees the final position");
+
+        actor.offer(new Command.Submit(ABI, bump(1), "c2"));
+        assertEquals(ErrorCode.WRONG_PHASE, rejected(broadcaster.nextDirect()).error());
+        actor.offer(join(SAM, TAB2));
+        assertEquals(ErrorCode.WRONG_PHASE, rejected(broadcaster.nextDirect()).error());
+        assertTrue(actor.isOpen(), "players can still reconnect to the final view");
+
+        actor.offer(join(ABI, TAB2));
+        assertInstanceOf(Snapshot.class, broadcaster.nextDirect().message());
+    }
+
+    @Test
     void onlyTheHostCanCloseTheRoom() throws Exception {
         RoomActor actor = actor(new FakeGame());
         actor.offer(join(ABI, TAB1));

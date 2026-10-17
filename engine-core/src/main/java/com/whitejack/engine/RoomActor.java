@@ -144,7 +144,7 @@ public final class RoomActor implements Runnable, AutoCloseable {
             return;
         }
         if (room.phase == Phase.FINISHED) {
-            reject(join.player(), ErrorCode.WRONG_PHASE, "the room has closed");
+            reject(join.player(), ErrorCode.WRONG_PHASE, "this table has finished");
             return;
         }
         String nick = join.nick() == null ? "" : join.nick().strip();
@@ -242,7 +242,7 @@ public final class RoomActor implements Runnable, AutoCloseable {
 
     private void onSubmit(Command.Submit submit) {
         if (session == null || room.phase != Phase.PLAYING) {
-            rejectIntent(submit, ErrorCode.WRONG_PHASE, "no game is running");
+            rejectIntent(submit, ErrorCode.WRONG_PHASE, room.phase == Phase.FINISHED ? "the game is over" : "no game is running");
             return;
         }
         if (room.occupant(submit.actor()) == null) {
@@ -259,6 +259,7 @@ public final class RoomActor implements Runnable, AutoCloseable {
         }
 
         broadcaster.toPlayer(submit.actor(), new Broadcaster.Accepted(submit.clientMsgId(), outcome.seq()));
+        finishIfOver();
         broadcast();   // tell them it is their turn...
         rearmClock();  // ...and only then start their clock, so latency is not deducted from it
     }
@@ -280,11 +281,25 @@ public final class RoomActor implements Runnable, AutoCloseable {
             throw new IllegalStateException(
                     def.id() + ".onTimeout produced an intent validate rejected: " + outcome.result());
         }
+        finishIfOver();
         broadcast();
         rearmClock();
     }
 
+    /**
+     * A game that has ended ends play at the table: later intents are refused and nobody new
+     * sits down. The actor stays open, so players can still reconnect to the final view until
+     * the host closes the room or it is reaped.
+     */
+    private void finishIfOver() {
+        if (session.isComplete()) room.phase = Phase.FINISHED;
+    }
+
     private void rearmClock() {
+        if (room.phase != Phase.PLAYING) {
+            turnClock.cancel(room.code);
+            return;
+        }
         session.turn().ifPresentOrElse(
                 turn -> turnClock.arm(room.code, turn, session.seq(), this::offer),
                 () -> turnClock.cancel(room.code));

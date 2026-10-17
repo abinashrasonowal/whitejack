@@ -46,6 +46,14 @@ public record GinState(
         history = history.stream().map(List::copyOf).toList();
     }
 
+    /** Before the first deal: everyone at zero. {@code createInitialState} folds a Dealt onto this. */
+    static GinState seated(List<Seat> seats) {
+        Map<PlayerId, Integer> zero = new LinkedHashMap<>();
+        for (Seat seat : seats) zero.put(seat.id(), 0);
+        return new GinState(seats, -1, seats.get(1).id(), GinPhase.SCORING, null, Map.of(), List.of(), List.of(), null,
+                zero, List.of(), null);
+    }
+
     List<Card> handOf(PlayerId player) {
         return hands.getOrDefault(player, List.of());
     }

@@ -45,6 +45,9 @@ final class FakeGame implements GameDefinition<FakeGame.State, FakeGame.Bump, Fa
 
     private final int minPlayers;
 
+    /** How many applied events end the game. */
+    private final int completeAt;
+
     FakeGame() {
         this(null, 1);
     }
@@ -54,8 +57,13 @@ final class FakeGame implements GameDefinition<FakeGame.State, FakeGame.Bump, Fa
     }
 
     FakeGame(String explodeOn, int minPlayers) {
+        this(explodeOn, minPlayers, Integer.MAX_VALUE);
+    }
+
+    FakeGame(String explodeOn, int minPlayers, int completeAt) {
         this.explodeOn = explodeOn;
         this.minPlayers = minPlayers;
+        this.completeAt = completeAt;
     }
 
     @Override
@@ -146,6 +154,6 @@ final class FakeGame implements GameDefinition<FakeGame.State, FakeGame.Bump, Fa
 
     @Override
     public boolean isComplete(State state) {
-        return false;
+        return state.applied().size() >= completeAt;
     }
 }

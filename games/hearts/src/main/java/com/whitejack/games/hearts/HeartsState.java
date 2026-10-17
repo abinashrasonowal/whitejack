@@ -23,6 +23,9 @@ import java.util.Map;
  * @param scores running totals across hands
  * @param history one row per finished hand, the points scored, in seat order
  * @param lastTrick the most recently completed trick, kept so the table can show its last card
+ * @param tricks every trick completed this hand, in order; public, so a player can count cards
+ * @param exchanged what each seat gave in this hand's pass, kept after the exchange so a player
+ *     can be shown their own pass; empty before the exchange and on a hold hand
  */
 public record HeartsState(
         List<Seat> seats,
@@ -38,7 +41,9 @@ public record HeartsState(
         Map<PlayerId, Integer> scores,
         List<List<Integer>> history,
         List<PlayedCard> lastTrick,
-        PlayerId lastTrickWinner) {
+        PlayerId lastTrickWinner,
+        List<Trick> tricks,
+        Map<PlayerId, List<Card>> exchanged) {
 
     public HeartsState {
         seats = List.copyOf(seats);
@@ -49,13 +54,15 @@ public record HeartsState(
         scores = Map.copyOf(scores);
         history = history.stream().map(List::copyOf).toList();
         lastTrick = List.copyOf(lastTrick);
+        tricks = List.copyOf(tricks);
+        exchanged = copyHands(exchanged);
     }
 
     /** Before the first deal: everyone at zero. {@code createInitialState} folds a Dealt onto this. */
     static HeartsState seated(List<Seat> seats) {
         Map<PlayerId, Integer> zero = zeroes(seats);
         return new HeartsState(seats, -1, HeartsPhase.SCORING, Map.of(), Map.of(), List.of(), null, 0,
-                false, zero, zero, List.of(), List.of(), null);
+                false, zero, zero, List.of(), List.of(), null, List.of(), Map.of());
     }
 
     static Map<PlayerId, List<Card>> copyHands(Map<PlayerId, List<Card>> hands) {

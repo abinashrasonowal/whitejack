@@ -58,7 +58,12 @@ export function useRoom(room: string, nick: string, token: string) {
     return () => s.close();
   }, [room, nick, token]);
 
-  const send = (type: string, payload?: object) => socket.current?.send(type, payload) ?? '';
+  /** Sends, or says so on the table when the socket is down, instead of silently dropping the frame. */
+  const send = (type: string, payload?: object) => {
+    const id = socket.current?.send(type, payload) ?? null;
+    if (id == null) setError({ error: 'NOT_CONNECTED', detail: 'Not connected right now, so that was not sent. Try again once the table is live.' });
+    return id;
+  };
 
   return {
     status,

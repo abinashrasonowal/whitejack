@@ -18,10 +18,15 @@ public record HeartsView(
         String onClock,
         List<PlayedCard> lastTrick,
         String lastTrickWinner,
+        List<Trick> tricks,
+        List<Card> myPass,
+        List<Card> received,
         String winner) {
 
     public record SeatView(int index, String id, String nick, int cardCount, int handPoints, int score,
             boolean passed) {}
 
     public record PlayedCard(String player, Card card) {}
+
+    public record Trick(List<PlayedCard> plays, String winner) {}
 }

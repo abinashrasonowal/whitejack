@@ -47,6 +47,11 @@ export interface HeartsPlay {
   card: WireCard;
 }
 
+export interface HeartsTrick {
+  plays: HeartsPlay[];
+  winner: string;
+}
+
 export interface HeartsView {
   phase: HeartsPhase;
   hand: number;
@@ -62,6 +67,12 @@ export interface HeartsView {
   onClock: string | null;
   lastTrick: HeartsPlay[];
   lastTrickWinner: string | null;
+  /** Every trick finished this hand, in order. */
+  tricks: HeartsTrick[];
+  /** The three cards you passed this hand; empty on a hold hand. */
+  myPass: WireCard[];
+  /** The three cards passed to you; empty until the exchange. */
+  received: WireCard[];
   /** One row per finished hand, points in seat order. */
   history: number[][];
   winner: string | null;
@@ -121,6 +132,13 @@ export interface GinView {
   lastHand: GinHandResult | null;
   history: number[][];
   winner: string | null;
+}
+
+/** The view each server game module sends, keyed by its id. */
+export interface ViewByGame {
+  hearts: HeartsView;
+  'gin-rummy': GinView;
+  poker: PokerView;
 }
 
 /** `game` is the server module id ("poker", "hearts"); it picks the board that renders `view`. */
